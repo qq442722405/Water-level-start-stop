@@ -2,8 +2,6 @@ name: Windows EXE Build
 
 on:
   workflow_dispatch:
-  push:
-    branches: ["main", "master"]
 
 jobs:
   build:
@@ -19,21 +17,28 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
+        shell: pwsh
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Build directory EXE
+        shell: pwsh
         run: |
-          pyinstaller --noconfirm --clean --windowed --name "水位数字自动控制" --icon=app.ico --collect-all ddddocr --collect-all onnxruntime --hidden-import=onnxruntime --hidden-import=onnxruntime.capi._pybind_state main.py
-          copy app.ico "dist\水位数字自动控制\app.ico"
+          # 使用纯英文输出目录，避免 GitHub Windows Runner 的中文路径编码问题
+          pyinstaller --noconfirm --clean --windowed --name "WaterLevelAutoControl" --icon=app.ico --collect-all ddddocr --collect-all onnxruntime --hidden-import=onnxruntime --hidden-import=onnxruntime.capi._pybind_state main.py
+          Copy-Item "app.ico" "dist\WaterLevelAutoControl\app.ico" -Force
 
       - name: Package output directory
-        shell: powershell
+        shell: pwsh
         run: |
-          Compress-Archive -Path "dist\水位数字自动控制\*" -DestinationPath "水位数字自动控制-Windows.zip" -Force
+          # 不使用中文目录路径，避免 Compress-Archive 找不到路径
+          if (-not (Test-Path "dist\WaterLevelAutoControl")) {
+            Write-Error "打包目录不存在：dist\WaterLevelAutoControl"
+          }
+          Compress-Archive -Path "dist\WaterLevelAutoControl\*" -DestinationPath "水位数字自动控制-Windows.zip" -Force
 
-      - name: Upload EXE folder
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: 水位数字自动控制-Windows

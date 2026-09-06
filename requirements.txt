@@ -5,4 +5,5 @@ opencv-python==4.10.0.84
 pyautogui==0.9.54
 pynput==1.8.1
 ddddocr==1.5.6
+onnxruntime==1.19.2
 pyinstaller==6.15.0

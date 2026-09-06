@@ -23,13 +23,19 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Build EXE
+      - name: Build directory EXE
         run: |
-          pyinstaller --noconfirm --clean --onefile --windowed --name "水位数字自动控制" --collect-all ddddocr main.py
+          pyinstaller --noconfirm --clean --windowed --name "水位数字自动控制" --icon=app.ico --collect-all ddddocr --collect-all onnxruntime --hidden-import=onnxruntime --hidden-import=onnxruntime.capi._pybind_state main.py
+          copy app.ico "dist\水位数字自动控制\app.ico"
 
-      - name: Upload EXE
+      - name: Package output directory
+        shell: powershell
+        run: |
+          Compress-Archive -Path "dist\水位数字自动控制\*" -DestinationPath "水位数字自动控制-Windows.zip" -Force
+
+      - name: Upload EXE folder
         uses: actions/upload-artifact@v4
         with:
           name: 水位数字自动控制-Windows
-          path: dist/水位数字自动控制.exe
+          path: 水位数字自动控制-Windows.zip
           if-no-files-found: error

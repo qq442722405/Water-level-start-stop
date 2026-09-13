@@ -18,6 +18,16 @@ class MonitorThread(QThread):
     def stop(self):
         self.running = False
 
+    @staticmethod
+    def safety_blocks(value, operator, limit):
+        if operator == ">":
+            return value > limit
+        if operator == ">=":
+            return value >= limit
+        if operator == "<":
+            return value < limit
+        return False
+
     def run(self):
         rect = type("R", (), {
             "x": lambda s: self.cfg["ocr_left"],
@@ -26,11 +36,16 @@ class MonitorThread(QThread):
             "height": lambda s: self.cfg["ocr_height"],
         })()
 
+        detection_interval = max(0.05, float(self.cfg.get("detection_interval", 1.0)))
+        operation_interval = max(0.05, float(self.cfg.get("operation_interval", 3.0)))
+        safety_operator = self.cfg.get("safety_operator", ">")
+        safety_value = float(self.cfg.get("safety_value", 20.0))
+
         while self.running:
             started = time.time()
             try:
                 img = screenshot_region(rect)
-                value = self.ocr.recognize(img)
+                value = self.ocr.recognize(img, self.cfg)
                 self.value_signal.emit(value)
 
                 if value is None:
@@ -38,18 +53,16 @@ class MonitorThread(QThread):
                 else:
                     high = float(self.cfg["high_threshold"])
                     low = float(self.cfg["low_threshold"])
-                    interval = max(0.05, float(self.cfg["interval"]))
-                    max_valid = float(self.cfg.get("max_valid_value", 20.0))
                     self.status_signal.emit(f"状态：识别到 {value:g}")
 
-                    # OCR 安全上限：超过该值视为疑似识别错误，绝不执行点击
-                    if value > max_valid:
+                    # 识别安全：命中条件时只显示警告，绝不点击。
+                    if self.safety_blocks(value, safety_operator, safety_value):
                         self.action_signal.emit(
-                            f"⚠ 识别值 {value:g} > 安全上限 {max_valid:g}，本次不执行点击"
+                            f"⚠ 识别安全拦截：{value:g} {safety_operator} {safety_value:g}，本次不执行操作"
                         )
                     else:
                         now = time.time()
-                        if self.cfg.get("click_enabled", True) and now - self.last_action >= interval:
+                        if self.cfg.get("click_enabled", True) and now - self.last_action >= operation_interval:
                             if value > high:
                                 self.do_click(
                                     self.cfg["high_x"], self.cfg["high_y"],
@@ -67,7 +80,7 @@ class MonitorThread(QThread):
                 self.status_signal.emit(f"状态：监控错误 - {e}")
 
             elapsed = time.time() - started
-            wait = max(0.02, float(self.cfg["interval"]) - elapsed)
+            wait = max(0.02, detection_interval - elapsed)
             self.msleep(int(wait * 1000))
 
     def do_click(self, x, y, count, message):

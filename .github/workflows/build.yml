@@ -25,17 +25,22 @@ jobs:
       - name: Build directory EXE
         shell: pwsh
         run: |
-          # 使用纯英文输出目录，避免 GitHub Windows Runner 的中文路径编码问题
           pyinstaller --noconfirm --clean --windowed --name "WaterLevelAutoControl" --icon=app.ico --collect-all ddddocr --collect-all onnxruntime --hidden-import=onnxruntime --hidden-import=onnxruntime.capi._pybind_state main.py
           Copy-Item "app.ico" "dist\WaterLevelAutoControl\app.ico" -Force
+
+      - name: Verify build
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "dist\WaterLevelAutoControl\WaterLevelAutoControl.exe")) {
+            Write-Error "EXE 构建失败"
+          }
+          Get-ChildItem "dist\WaterLevelAutoControl" | Select-Object Name,Length
 
       - name: Package output directory
         shell: pwsh
         run: |
-          # 不使用中文目录路径，避免 Compress-Archive 找不到路径
-          if (-not (Test-Path "dist\WaterLevelAutoControl")) {
-            Write-Error "打包目录不存在：dist\WaterLevelAutoControl"
-          }
+          # 使用英文目录名，避免 Windows Runner 中文路径编码问题
+          if (Test-Path "水位数字自动控制-Windows.zip") { Remove-Item "水位数字自动控制-Windows.zip" -Force }
           Compress-Archive -Path "dist\WaterLevelAutoControl\*" -DestinationPath "水位数字自动控制-Windows.zip" -Force
 
       - name: Upload artifact
